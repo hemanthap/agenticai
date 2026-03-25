@@ -1,31 +1,27 @@
 #!/usr/bin/env python3
-
-# pip install langchain-anthropic langchain-community langchain-text-splitters chromadb sentence-transformers
-# pip install -U langchain-huggingface langchain-chroma --break-system-packages
+# pip install langchain-community langchain-text-splitters chromadb langchain-groq langchain-chroma 
 
 import os
 import chromadb
-from langchain_anthropic import ChatAnthropic
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_groq import ChatGroq
+from langchain_community.embeddings import FakeEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 # Initialize Claude LLM
-llm = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",
     temperature=0,
-    api_key='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',
+    api_key="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",
 )
 
-# Initialize embeddings (updated package)
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+# Initialize embeddings using LangChain's OpenAI embeddings)
+embeddings = FakeEmbeddings(size=384)
 
-# Create Chroma HTTP client — correct way to connect to a remote Chroma instance
+
+# Connect to remote Chroma instance
 chroma_http_client = chromadb.HttpClient(host="chroma.home", port=80)
-
 chroma_client = Chroma(
     client=chroma_http_client,
     collection_name="documents",
@@ -82,29 +78,32 @@ except Exception as e:
     print(f"✗ Error storing chunks: {e}")
     exit(1)
 
-# Query
+# Query vectordb
 print("\n--- Testing retrieval ---")
 query = "Tell me about vector databases"
 results = chroma_client.similarity_search(query, k=3)
+
 print(f"\nQuery: '{query}'")
+
 print(f"Found {len(results)} similar documents:\n")
 for i, result in enumerate(results, 1):
     print(f"{i}. {result.page_content[:100]}...")
     print(f"   Metadata: {result.metadata}\n")
 
-# Use Claude with retrieved context
-print("\n--- Using Claude with retrieved context ---")
+# Use LLM with retrieved context
 context = "\n".join([doc.page_content for doc in results])
-prompt = f"""Based on the following context, answer the question.
 
+prompt = f"""Based on the following context, answer the question.
 Context:
 {context}
-
 Question: {query}
-Answer:"""
+Answer:
+"""
 
-# response = llm.invoke(prompt)
-# print(f"Claude's response:\n{response.content}")
+# prompt = f"""
+# {context}
+# {query}
+# """
 
-print("--- Skipping Claude call (no credits) ---")
-print(f"Prompt that would be sent:\n{prompt}")
+response = llm.invoke(prompt)
+print(f"groq's response:\n{response.content}")
