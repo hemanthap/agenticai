@@ -34,7 +34,8 @@ tools = [
 def get_greeting(name: str) -> str:
     return f"Hello, {name}!"
     
-messages=[{"role": "user", "content": "Say hello to Alice using the greeting tool."}],
+messages=[{"role": "user", "content": "Say hello to Alice using the greeting tool."}]
+
 # First call — model decides to use the tool
 response = client.chat.completions.create(
     model="models/gemini-2.0-flash",
@@ -53,8 +54,8 @@ messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result
 
 # Second call — send tool result back to model
 final_response = client.chat.completions.create(
-    model="gemini-2.0-flash",
-    messagesmessages,
+    model="models/gemini-2.0-flash",
+    messages=messages,
     tools=tools
 )
 
