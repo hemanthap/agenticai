@@ -13,7 +13,7 @@ from langchain_core.documents import Document
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0,
-    api_key="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",
+    api_key="GROQ_API_KEY",
 )
 
 # Initialize embeddings using LangChain's OpenAI embeddings)
