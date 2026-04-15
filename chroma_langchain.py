@@ -3,17 +3,21 @@
 
 import os
 import chromadb
+from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
+load_dotenv(override=True)
+groq_api_key = os.getenv('GROQ_API_KEY')
+
 # Initialize Claude LLM
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0,
-    api_key="GROQ_API_KEY",
+    api_key=groq_api_key,
 )
 
 # Initialize embeddings using LangChain's OpenAI embeddings)
