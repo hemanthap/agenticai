@@ -49,10 +49,18 @@ response = client.chat.completions.create(
 print("Model response:", response.choices[0].message)
 
 # Handle the tool call
+# This is plain Python — no AI involved here. You're just calling your own function.
 if response.choices[0].message.tool_calls:
     tool_call = response.choices[0].message.tool_calls[0]
+   
+    print("Tool call received:", tool_call)
+   
     args = json.loads(tool_call.function.arguments)
+   
+    print("Parsed tool call arguments:", args)
+   
     result = get_greeting(**args)
+   
     messages.append(response.choices[0].message)
     messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result})
 
@@ -69,7 +77,8 @@ print(f' final response: {final_response.choices[0].message.content}')
 
 # Output
 # OpenAI API Key exists and begins sk-
-# Model response: ChatCompletionMessage(content=None, refusal=None, role='assistant', annotations=[], audio=None, function_call=None, tool_calls=[ChatCompletionMessageFunctionToolCall(id='call_srcLsQxV8OOBxjznyVWbLxVF', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')])
-# Updated messages with tool result: [{'role': 'user', 'content': 'Say hello to Alice using the greeting tool.'}, ChatCompletionMessage(content=None, refusal=None, role='assistant', annotations=[], audio=None, function_call=None, tool_calls=[ChatCompletionMessageFunctionToolCall(id='call_srcLsQxV8OOBxjznyVWbLxVF', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')]), {'role': 'tool', 'tool_call_id': 'call_srcLsQxV8OOBxjznyVWbLxVF', 'content': 'Hello, Alice!'}]
+# Model response: ChatCompletionMessage(content=None, refusal=None, role='assistant', annotations=[], audio=None, function_call=None, tool_calls=[ChatCompletionMessageFunctionToolCall(id='call_AFeFmlyd7DB5qFaRFCLLDOz8', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')])
+# Tool call received: ChatCompletionMessageFunctionToolCall(id='call_AFeFmlyd7DB5qFaRFCLLDOz8', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')
+# Parsed tool call arguments: {'name': 'Alice'}
+# Updated messages with tool result: [{'role': 'user', 'content': 'Say hello to Alice using the greeting tool.'}, ChatCompletionMessage(content=None, refusal=None, role='assistant', annotations=[], audio=None, function_call=None, tool_calls=[ChatCompletionMessageFunctionToolCall(id='call_AFeFmlyd7DB5qFaRFCLLDOz8', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')]), {'role': 'tool', 'tool_call_id': 'call_AFeFmlyd7DB5qFaRFCLLDOz8', 'content': 'Hello, Alice!'}]
 #  final response: Hello, Alice!
-
