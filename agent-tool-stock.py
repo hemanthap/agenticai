@@ -4,6 +4,7 @@ import time
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
+import yfinance as yf
 
 load_dotenv(override=True)
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
@@ -15,66 +16,59 @@ tools = [
         "type": "function",
         "function": {
             "name": "get_stock_price",
-            "description": "Returns the latest stock price and basic info for a given ticker symbol",
+            "description": "Returns the latest stock price and basic info for a list of ticker symbols",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "ticker": {
-                        "type": "string",
-                        "description": "The stock ticker symbol, e.g. AAPL, TSLA, MSFT"
+                    "tickers": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of stock ticker symbols, e.g. ['AAPL', 'TSLA', 'MSFT']"
                     }
                 },
-                "required": ["ticker"]
+                "required": ["tickers"]
             }
         }
     }
 ]
 
+def get_sp500_list():
+    return yf.tickers_sp500()
+
+
 # ─── REAL FUNCTION (now uses Alpha Vantage) ───────────────────────────────────
-def get_stock_price(ticker: str) -> str:
-    url = "https://www.alphavantage.co/query"
+def get_stock_price(tickers: list[str]) -> str:
+    results = []
 
-    # 1. GLOBAL QUOTE — current price
-    quote_params = {
-        "function": "GLOBAL_QUOTE",
-        "symbol": ticker,
-        "apikey": ALPHA_VANTAGE_KEY
-    }
-    quote_resp = requests.get(url, params=quote_params).json()
-    print("GLOBAL QUOTE RESPONSE:", quote_resp)
+    for ticker in tickers:
+        stock = yf.Ticker(ticker)
 
-    quote = quote_resp.get("Global Quote", {})
-    if not quote:
-        return json.dumps({"error": f"No price data found for '{ticker}'"})
+        hist = stock.history(period="1y")
+        if hist.empty:
+            results.append({"ticker": ticker.upper(), "error": "No data found"})
+            continue
 
-    # Alpha Vantage free tier requires spacing requests
-    time.sleep(1.2)
+        current_price = hist["Close"].iloc[-1]
+        day_high = hist["High"].iloc[-1]
+        day_low = hist["Low"].iloc[-1]
+        prev_close = hist["Close"].iloc[-2] if len(hist) > 1 else None
+        volume = hist["Volume"].iloc[-1]
+        week_high = hist["High"].max()
+        week_low = hist["Low"].min()
 
-    # 2. OVERVIEW — 52-week high/low
-    overview_params = {
-        "function": "OVERVIEW",
-        "symbol": ticker,
-        "apikey": ALPHA_VANTAGE_KEY
-    }
-    overview_resp = requests.get(url, params=overview_params).json()
-    print("OVERVIEW RESPONSE:", overview_resp)
+        results.append({
+            "ticker": ticker.upper(),
+            "current_price": float(current_price),
+            "day_high": float(day_high),
+            "day_low": float(day_low),
+            "prev_close": float(prev_close) if prev_close else None,
+            "change_pct": None,
+            "volume": int(volume),
+            "52_week_high": float(week_high),
+            "52_week_low": float(week_low),
+        })
 
-    week_high = overview_resp.get("52WeekHigh")
-    week_low = overview_resp.get("52WeekLow")
-
-    result = {
-        "ticker": ticker.upper(),
-        "current_price": quote.get("05. price"),
-        "day_high": quote.get("03. high"),
-        "day_low": quote.get("04. low"),
-        "prev_close": quote.get("08. previous close"),
-        "change_pct": quote.get("10. change percent"),
-        "volume": quote.get("06. volume"),
-        "52_week_high": week_high,
-        "52_week_low": week_low,
-    }
-
-    return json.dumps(result)
+    return json.dumps(results)
 
 
 
@@ -82,6 +76,7 @@ def get_stock_price(ticker: str) -> str:
 messages = [
     {
         "role": "user",
+        #"content": "Consider the S&P 500 stocks whose 52 weeks low is close to current price."
         "content": "What's the current stock price of Apple and Tesla? Is it close to its 52 weeks low?"
     }
 ]
@@ -96,30 +91,34 @@ response = client.chat.completions.create(
 assistant_message = response.choices[0].message
 
 print("Raw response from LLM", assistant_message)
-print("Model wants to call:", assistant_message.tool_calls[0].function.name)
-print("With args:", assistant_message.tool_calls[0].function.arguments)
+
+if assistant_message.tool_calls:
+    print("Model wants to call:", assistant_message.tool_calls[0].function.name)
+    print("With args:", assistant_message.tool_calls[0].function.arguments)
+else:
+    print("Model did not request a tool call.")
 
 # ─── BRIDGE (unchanged) ───────────────────────────────────────────────────────
 if assistant_message.tool_calls:
-   
-    # add the response from the First Call
     messages.append(assistant_message)
 
     for tool_call in assistant_message.tool_calls:
-        
         args = json.loads(tool_call.function.arguments)
-        print(f"\nFetching live data for: {args['ticker']}...")
 
-        result = get_stock_price(**args)
+        # Updated for multi‑ticker support
+        print(f"\nFetching live data for tickers: {args['tickers']}")
+
+        result = get_stock_price(args['tickers'])
         print("Live data returned:", result)
 
         messages.append({
             "role": "tool",
-            "tool_call_id": tool_call.id,   # ← each result paired to its call
+            "tool_call_id": tool_call.id,
             "content": result
         })
 
-        time.sleep(1) 
+        time.sleep(1)
+
 
 # ─── ROUND 2 (unchanged) ──────────────────────────────────────────────────────
 final_response = client.chat.completions.create(
