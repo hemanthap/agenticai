@@ -36,7 +36,7 @@ def get_greeting(name: str) -> str:
     return f"Hello, {name}!"
 
 messages = [
-    {"role": "user", "content": "Say hello to Alice using the greeting tool."}
+    {"role": "user", "content": "Say Goodmorning to Alice using the greeting tool."}
 ]
 
 # First call — model decides to use the tool
@@ -51,6 +51,7 @@ print("Model response:", response.choices[0].message)
 # Handle the tool call
 # This is plain Python — no AI involved here. You're just calling your own function.
 if response.choices[0].message.tool_calls:
+    
     tool_call = response.choices[0].message.tool_calls[0]
    
     print("Tool call received:", tool_call)
@@ -62,6 +63,7 @@ if response.choices[0].message.tool_calls:
     result = get_greeting(**args)
    
     messages.append(response.choices[0].message)
+
     messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result})
 
 print("Updated messages with tool result:", messages)
