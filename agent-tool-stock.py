@@ -38,28 +38,28 @@ def get_stock_price(tickers: list[str]) -> str:
     results = []
 
     for ticker in tickers:
-        cache_file = f"cache/{ticker}.json"
+        clean_ticker = ticker.lstrip("$")
+        cache_file = f"cache/{clean_ticker}.json"  # ← was ticker
 
         if os.path.exists(cache_file):
             with open(cache_file, "r") as f:
                 cached = json.load(f)
-            # Invalidate cache if missing new fields
             if "prev_day_high" not in cached or cached.get("prev_day_high") is None:
-                print(f"DEBUG: cache stale for {ticker}, re-fetching")
+                print(f"DEBUG: cache stale for {clean_ticker}, re-fetching")
                 os.remove(cache_file)
             else:
                 results.append(cached)
-                print(f"DEBUG: loaded {ticker} from cache")
+                print(f"DEBUG: loaded {clean_ticker} from cache")
                 continue
 
         try:
-            stock = yf.Ticker(ticker)
+            stock = yf.Ticker(clean_ticker)
             fast  = stock.fast_info
             hist  = stock.history(period="1y")
 
             if hist.empty:
-                print(f"DEBUG: {ticker} → no history data")
-                results.append({"ticker": ticker, "error": "No data returned"})
+                print(f"DEBUG: {clean_ticker} → no history data")
+                results.append({"ticker": clean_ticker, "error": "No data returned"})  # ← was ticker
                 continue
 
             current_price  = fast.last_price
@@ -79,7 +79,7 @@ def get_stock_price(tickers: list[str]) -> str:
             change_pct         = round((current_price - prev_close) / prev_close * 100, 2) if prev_close else None
 
             result = {
-                "ticker":             ticker,
+                "ticker":             clean_ticker,  # ← was ticker
                 "current_price":      round(current_price, 2),
                 "day_high":           round(day_high, 2),
                 "day_low":            round(day_low, 2),
@@ -94,24 +94,14 @@ def get_stock_price(tickers: list[str]) -> str:
                 "pct_below_52w_high": pct_below_52w_high,
             }
 
-            print(
-                f"DEBUG: {ticker} → "
-                f"current={current_price:.2f}, "
-                f"52w_low={week_low:.2f}, "
-                f"52w_high={week_high:.2f}, "
-                f"prev_high={prev_day_high:.2f}, "
-                f"prev_low={prev_day_low:.2f}, "
-                f"pct_above_low={pct_above_52w_low}%"
-            )
-
             with open(cache_file, "w") as f:
                 json.dump(result, f)
 
             results.append(result)
 
         except Exception as e:
-            print(f"DEBUG: {ticker} → EXCEPTION: {e}")
-            results.append({"ticker": ticker, "error": str(e)})
+            print(f"DEBUG: {clean_ticker} → EXCEPTION: {e}")
+            results.append({"ticker": clean_ticker, "error": str(e)})  # ← was ticker
 
     return json.dumps(results)
 
