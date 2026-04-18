@@ -145,6 +145,7 @@ def get_stock_price_batched(tickers: list[str], batch_size: int = 25, pct_thresh
     print(f"\n─── Python Filter: {len(near_lows)} stocks within {pct_threshold}% of 52-week low ───")
     print(f"{'Ticker':<8} {'Current':>10} {'52W Low':>10} {'52W High':>10} {'%AboveLow':>10} {'PrevHigh':>10} {'PrevLow':>10}")
     print("-" * 75)
+    
     for s in near_lows:
         print(
             f"{s['ticker']:<8}"
