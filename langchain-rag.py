@@ -78,7 +78,7 @@ SAMPLE_DOCS = [
 # ---------------------------------------------------------------------------
 # 2. Split documents into chunks
 # ---------------------------------------------------------------------------
-def split_documents(docs: list[Document], chunk_size: int = 300, chunk_overlap: int = 50):
+def split_documents(docs: list[Document], chunk_size: int = 300, chunk_overlap: int = 50)->list[Document]:
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
