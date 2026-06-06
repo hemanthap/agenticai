@@ -5,19 +5,21 @@ Uses the modern LCEL (LangChain Expression Language) pipeline —
 no deprecated langchain.chains or langchain.schema imports.
 
 Requirements:
-    pip install langchain langchain-openai langchain-qdrant \
-                langchain-text-splitters qdrant-client tiktoken
+    pip install langchain langchain-mistralai langchain-qdrant \
+                langchain-text-splitters qdrant-client
 
 Usage:
-    export OPENAI_API_KEY="sk-..."
+    export MISTRAL_API_KEY="..."  # used for embeddings + chat model
+    export MISTRAL_CHAT_MODEL="ministral-8b-latest"  # optional, higher-throughput default
     python simple_rag.py
 """
 
 import os
+import time
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_qdrant import QdrantVectorStore
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_mistralai import ChatMistralAI, MistralAIEmbeddings
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -91,13 +93,15 @@ def split_documents(docs: list[Document], chunk_size: int = 300, chunk_overlap: 
 # ---------------------------------------------------------------------------
 # 3. Build a Qdrant vector store
 # ---------------------------------------------------------------------------
-QDRANT_URL        = "http://qdrant.home"
+QDRANT_URL        = "http://192.168.68.50:6333"   # adjust if your Qdrant is elsewhere
 QDRANT_COLLECTION = "rag_demo"
-EMBEDDING_DIM     = 1536   # text-embedding-ada-002 / text-embedding-3-small
+EMBEDDING_MODEL   = "mistral-embed"
+EMBEDDING_DIM     = 1024   # mistral-embed
+CHAT_MODEL        = os.getenv("MISTRAL_CHAT_MODEL", "ministral-8b-latest")
 
 
 def build_vector_store(chunks: list[Document]) -> QdrantVectorStore:
-    embeddings = OpenAIEmbeddings()
+    embeddings = MistralAIEmbeddings(model=EMBEDDING_MODEL)
 
     client = QdrantClient(url=QDRANT_URL)
     existing = [c.name for c in client.get_collections().collections]
@@ -142,7 +146,7 @@ def format_docs(docs: list[Document]) -> str:
 
 def build_rag_chain(vector_store: QdrantVectorStore):
     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = ChatMistralAI(model=CHAT_MODEL, temperature=0)
 
     chain = (
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
@@ -159,7 +163,29 @@ def build_rag_chain(vector_store: QdrantVectorStore):
 def ask(retriever, chain, question: str):
     print(f"\n{'─'*60}")
     print(f"Q: {question}")
-    answer = chain.invoke(question)
+    answer = None
+    max_retries = 3
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            answer = chain.invoke(question)
+            break
+        except Exception as exc:
+            response = getattr(exc, "response", None)
+            status_code = getattr(response, "status_code", None)
+            if status_code == 429 and attempt < max_retries:
+                wait_seconds = 2 ** attempt
+                print(f"   [warn] Rate-limited by Mistral (429). Retrying in {wait_seconds}s...")
+                time.sleep(wait_seconds)
+                continue
+            if status_code == 429:
+                answer = "I don't know. (Mistral API rate limit exceeded. Please retry shortly.)"
+                break
+            raise
+
+    if answer is None:
+        answer = "I don't know."
+
     print(f"A: {answer}")
     docs = retriever.invoke(question)
     sources = {doc.metadata.get("source", "unknown") for doc in docs}
@@ -172,9 +198,9 @@ def ask(retriever, chain, question: str):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     load_dotenv(override=True)
-    openai_api_key = os.getenv('OPENAI_API_KEY')
-    # if not os.getenv("openai_api_key"):
-    #     raise EnvironmentError("Set OPENAI_API_KEY before running.")
+    if not os.getenv("MISTRAL_API_KEY"):
+        raise EnvironmentError("Set MISTRAL_API_KEY before running.")
+    print(f"[model]    Chat model: {CHAT_MODEL}")
 
     chunks = split_documents(SAMPLE_DOCS)
     store = build_vector_store(chunks)
