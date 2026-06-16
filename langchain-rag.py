@@ -6,7 +6,7 @@ no deprecated langchain.chains or langchain.schema imports.
 
 Requirements:
     pip install langchain langchain-mistralai langchain-qdrant \
-                langchain-text-splitters qdrant-client
+                langchain-text-splitters qdrant-client --break-system-packages
 
 Usage:
     export MISTRAL_API_KEY="..."  # used for embeddings + chat model
