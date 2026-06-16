@@ -5,8 +5,17 @@ import yfinance as yf
 from dotenv import load_dotenv
 from openai import OpenAI
 
+# pip install yfinance --break-system-packages
+
+
 load_dotenv(override=True)
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+groq_api_key = os.getenv('GROQ_API_KEY')
+
+if groq_api_key is None:
+    print("Error: GROQ_API_KEY environment variable is not set.")
+    exit(1)
+
+client = OpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
 
 os.makedirs("cache", exist_ok=True)
 
@@ -195,7 +204,7 @@ first_turn = True
 
 while True:
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="llama-3.3-70b-versatile",
         messages=messages,
         tools=tools,
         tool_choice={"type": "function", "function": {"name": "get_stock_price"}} if first_turn else "auto"

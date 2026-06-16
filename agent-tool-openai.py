@@ -3,16 +3,18 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv(override=True)
-openai_api_key = os.getenv('OPENAI_API_KEY')
+#pip install python-dotenv openai --break-system-packages
 
-if openai_api_key is None:
-    print("Error: OPENAI_API_KEY environment variable is not set.")
+load_dotenv(override=True)
+groq_api_key = os.getenv('GROQ_API_KEY')
+
+if groq_api_key is None:
+    print("Error: GROQ_API_KEY environment variable is not set.")
     exit(1)
 
-print(f"OpenAI API Key exists and begins {openai_api_key[:3]}")
+print(f"Groq API Key exists and begins {groq_api_key[:3]}")
 
-client = OpenAI(api_key=openai_api_key)  # No custom base_url needed for OpenAI
+client = OpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
 
 # Define a simple tool
 tools = [
@@ -41,7 +43,7 @@ messages = [
 
 # First call — model decides to use the tool
 response = client.chat.completions.create(
-    model="gpt-4o-mini",  # or "gpt-4o" for the more capable model
+    model="llama-3.3-70b-versatile",
     messages=messages,
     tools=tools
 )
@@ -61,6 +63,8 @@ if response.choices[0].message.tool_calls:
     print("Parsed tool call arguments:", args)
    
     result = get_greeting(**args)
+
+    print(f"Tool result: {result}")
    
     messages.append(response.choices[0].message)
 
@@ -70,9 +74,8 @@ print("Updated messages with tool result:", messages)
 
 # Second call — send tool result back to model
 final_response = client.chat.completions.create(
-    model="gpt-4o-mini",
+    model="llama-3.3-70b-versatile",
     messages=messages,
-    tools=tools
 )
 
 print(f' final response: {final_response.choices[0].message.content}')
@@ -83,4 +86,4 @@ print(f' final response: {final_response.choices[0].message.content}')
 # Tool call received: ChatCompletionMessageFunctionToolCall(id='call_AFeFmlyd7DB5qFaRFCLLDOz8', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')
 # Parsed tool call arguments: {'name': 'Alice'}
 # Updated messages with tool result: [{'role': 'user', 'content': 'Say hello to Alice using the greeting tool.'}, ChatCompletionMessage(content=None, refusal=None, role='assistant', annotations=[], audio=None, function_call=None, tool_calls=[ChatCompletionMessageFunctionToolCall(id='call_AFeFmlyd7DB5qFaRFCLLDOz8', function=Function(arguments='{"name":"Alice"}', name='get_greeting'), type='function')]), {'role': 'tool', 'tool_call_id': 'call_AFeFmlyd7DB5qFaRFCLLDOz8', 'content': 'Hello, Alice!'}]
-#  final response: Hello, Alice!
+#  final response: Good morning, Alice.
